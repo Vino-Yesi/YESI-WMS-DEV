@@ -1,0 +1,13 @@
+global:
+  scrape_interval: 30s
+  evaluation_interval: 30s
+
+scrape_configs:
+  # Set target hostname to your deployment's Supabase Edge Function domain (<project-ref>.supabase.co)
+  - job_name: 'yesi-wms-supabase-edge'
+    scheme: https
+    metrics_path: '/functions/v1/wms-api'
+    params:
+      action: ['metrics']
+    static_configs:
+      - targets: ['your-project-ref.supabase.co']

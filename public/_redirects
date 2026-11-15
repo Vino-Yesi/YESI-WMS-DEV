@@ -1,0 +1,2 @@
+# SPA fallback: every non-asset route renders index.html.
+/*    /index.html   200

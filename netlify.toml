@@ -1,0 +1,13 @@
+# Netlify configuration.
+#
+# The SPA rewrite and the security headers live in `public/_redirects` and
+# `public/_headers`, which Vite copies into `dist/` verbatim. Keeping them in the
+# published folder (instead of here) means a drag-and-drop deploy of the built
+# bundle — Netlify Drop, Cloudflare Pages direct upload, or any host that honours
+# these files — ships with the same hardening as a git-connected deploy and as the
+# self-hosted `ops/nginx.conf`. Do not duplicate the rules here: two sources of
+# truth for headers drift apart.
+
+[build]
+  command = "npm run build"
+  publish = "dist"

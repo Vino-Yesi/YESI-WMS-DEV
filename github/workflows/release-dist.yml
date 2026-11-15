@@ -1,0 +1,120 @@
+name: Drop-Ready Release Bundle
+
+# Produces the artefact for the "drop file" deploy flow: a zip of `dist/` plus its
+# SHA-256 checksum, built in CI — never on a laptop — so the bundle you drag onto
+# a host is byte-for-byte what the quality gates verified.
+#
+# Two bundles are produced:
+#   yesi-wms-drop-offline-<sha7>.zip   no cloud variables baked in; boots into
+#                                      Offline-Edge mode and queues work locally
+#   yesi-wms-drop-cloud-<sha7>.zip     only when VITE_SUPABASE_URL /
+#                                      VITE_SUPABASE_ANON_KEY exist as repository
+#                                      secrets; cloud scope is BAKED IN at build
+#                                      time, so treat that zip as environment-
+#                                      specific and handle it accordingly
+#
+# Security headers and the SPA rewrite travel inside the zip (`_headers`,
+# `_redirects`), so a drag-and-drop deploy is as hardened as the self-hosted
+# nginx config. Verify before deploying: `sha256sum -c <name>.zip.sha256`.
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+jobs:
+  drop-bundle:
+    name: Build & publish drop-ready bundles
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci --legacy-peer-deps
+
+      - name: Build Offline-Edge bundle
+        env:
+          VITE_SUPABASE_URL: ''
+          VITE_SUPABASE_ANON_KEY: ''
+          VITE_WMS_TENANT_CODE: YESI-FZCO
+          VITE_WMS_DEFAULT_WAREHOUSE: DXB-FC1
+        run: npm run build
+
+      - name: Package offline bundle with checksum
+        run: |
+          set -euo pipefail
+          name="yesi-wms-drop-offline-${GITHUB_SHA:0:7}"
+          (cd dist && zip -qr "../${name}.zip" .)
+          sha256sum "${name}.zip" > "${name}.zip.sha256"
+          cat "${name}.zip.sha256"
+
+      - name: Upload offline bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: yesi-wms-drop-offline
+          path: |
+            yesi-wms-drop-offline-*.zip
+            yesi-wms-drop-offline-*.zip.sha256
+
+      - name: Build cloud-configured bundle
+        if: ${{ secrets.VITE_SUPABASE_URL != '' && secrets.VITE_SUPABASE_ANON_KEY != '' }}
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_WMS_TENANT_CODE: YESI-FZCO
+          VITE_WMS_DEFAULT_WAREHOUSE: DXB-FC1
+        run: npm run build
+
+      - name: Package cloud bundle with checksum
+        if: ${{ secrets.VITE_SUPABASE_URL != '' && secrets.VITE_SUPABASE_ANON_KEY != '' }}
+        run: |
+          set -euo pipefail
+          name="yesi-wms-drop-cloud-${GITHUB_SHA:0:7}"
+          (cd dist && zip -qr "../${name}.zip" .)
+          sha256sum "${name}.zip" > "${name}.zip.sha256"
+          cat "${name}.zip.sha256"
+
+      - name: Upload cloud bundle
+        if: ${{ secrets.VITE_SUPABASE_URL != '' && secrets.VITE_SUPABASE_ANON_KEY != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: yesi-wms-drop-cloud
+          path: |
+            yesi-wms-drop-cloud-*.zip
+            yesi-wms-drop-cloud-*.zip.sha256
+
+
+  # Separate job so the wide permission lives only where it is used: building and
+  # uploading artifacts needs nothing beyond the default read scope.
+  publish-release:
+    name: Publish GitHub Release (tag pushes only)
+    needs: drop-bundle
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: yesi-wms-drop-*
+          merge-multiple: true
+          path: bundles/
+      - name: Create the release with bundles and checksums
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=(bundles/yesi-wms-drop-*.zip bundles/yesi-wms-drop-*.zip.sha256)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "no drop bundles found in the artifacts" >&2
+            exit 1
+          fi
+          gh release create "${GITHUB_REF_NAME}" "${files[@]}" \
+            --title "YESI-WMS ${GITHUB_REF_NAME} — drop-ready bundles" \
+            --notes "Verify before deploying: sha256sum -c <bundle>.zip.sha256. The offline bundle boots without any cloud configuration; the cloud bundle (when present) has its Supabase scope baked in at build time."
