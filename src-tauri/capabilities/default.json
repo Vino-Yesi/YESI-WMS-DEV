@@ -1,0 +1,31 @@
+{
+  "$schema": "https://schemas.tauri.app/config/2/capability.json",
+  "identifier": "default",
+  "description": "Default capabilities for Yesi-WMS Lite desktop (enhanced)",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:window:allow-close",
+    "core:window:allow-minimize",
+    "core:window:allow-maximize",
+    "core:window:allow-set-title",
+    "core:window:allow-start-dragging",
+    "core:event:default",
+    "core:app:default",
+    "shell:allow-open",
+    "dialog:default",
+    "dialog:allow-open",
+    "dialog:allow-save",
+    "dialog:allow-message",
+    "dialog:allow-ask",
+    "fs:default",
+    "fs:allow-read-file",
+    "fs:allow-write-file",
+    "fs:allow-exists",
+    "clipboard-manager:default",
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text",
+    "log:default"
+  ]
+}

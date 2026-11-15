@@ -1,0 +1,32 @@
+[package]
+name = "yesi-lite-wms"
+version = "1.2.1"
+description = "Yesi-WMS Lite — enhanced offline-first instant fulfillment WMS"
+authors = ["YESI-FZCO"]
+edition = "2021"
+rust-version = "1.77"
+
+[lib]
+name = "yesi_lite_wms_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-log = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+log = "0.4"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
